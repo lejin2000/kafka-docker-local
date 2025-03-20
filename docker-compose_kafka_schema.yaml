@@ -1,0 +1,176 @@
+version: '3.8'
+
+x-kafka-defaults: &kafka-defaults
+  image: confluentinc/cp-kafka:7.9.0
+  restart: always
+  environment: &kafka-default-env
+    KAFKA_PROCESS_ROLES: 'broker,controller'
+    KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+    KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+    CLUSTER_ID: 'ciWo7IWazngRchmPES6q5A=='
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    KAFKA_SECURITY_PROTOCOL: 'PLAINTEXT'
+  networks:
+    - kafka-net
+
+services:
+  kafka1:
+    <<: *kafka-defaults
+    container_name: kafka1
+    hostname: kafka1
+    ports:
+      - "9092:9092"
+    environment:
+      <<: *kafka-default-env
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:29093,2@kafka2:29094,3@kafka3:29095'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENERS: 'CONTROLLER://kafka1:29093,PLAINTEXT://kafka1:29092,PLAINTEXT_HOST://0.0.0.0:9092'
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+    depends_on:
+      - zookeeper
+
+  kafka2:
+    <<: *kafka-defaults
+    container_name: kafka2
+    hostname: kafka2
+    ports:
+      - "9093:9093"
+    environment:
+      <<: *kafka-default-env
+      KAFKA_NODE_ID: 2
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:29093,2@kafka2:29094,3@kafka3:29095'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka2:29092,PLAINTEXT_HOST://localhost:9093'
+      KAFKA_LISTENERS: 'CONTROLLER://kafka2:29094,PLAINTEXT://kafka2:29092,PLAINTEXT_HOST://0.0.0.0:9093'
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+    depends_on:
+      - kafka1
+
+  kafka3:
+    <<: *kafka-defaults
+    container_name: kafka3
+    hostname: kafka3
+    ports:
+      - "9094:9094"
+    environment:
+      <<: *kafka-default-env
+      KAFKA_NODE_ID: 3
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:29093,2@kafka2:29094,3@kafka3:29095'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka3:29092,PLAINTEXT_HOST://localhost:9094'
+      KAFKA_LISTENERS: 'CONTROLLER://kafka3:29095,PLAINTEXT://kafka3:29092,PLAINTEXT_HOST://0.0.0.0:9094'
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+    depends_on:
+      - kafka2
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.0
+    container_name: schema-registry
+    hostname: schema-registry
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka1:29092,kafka2:29092,kafka3:29092"
+      SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - kafka-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8089:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29092,kafka3:29092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: "connect"
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: "http://debezium-connect:8083"
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - kafka-net
+
+  debezium-connect:
+    image: debezium/connect:2.4
+    container_name: debezium-connect
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: "kafka1:29092,kafka2:29092,kafka3:29092"
+      GROUP_ID: "debezium-group"
+      CONFIG_STORAGE_TOPIC: "debezium_connect_configs"
+      OFFSET_STORAGE_TOPIC: "debezium_connect_offsets"
+      STATUS_STORAGE_TOPIC: "debezium_connect_status"
+      KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "debezium-connect"
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+      - sqlserver-source
+      - sqlserver-destination
+    networks:
+      - kafka-net
+
+  sqlserver-source:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-source
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong@Passw0rd"
+      MSSQL_AGENT_ENABLED: "true"
+    volumes:
+      - sqlserver-source-data:/var/opt/mssql
+    networks:
+      - kafka-net
+
+  sqlserver-destination:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-destination
+    ports:
+      - "1434:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong@Passw0rd"
+      MSSQL_AGENT_ENABLED: "true"
+    volumes:
+      - sqlserver-destination-data:/var/opt/mssql
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge
+
+volumes:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+  sqlserver-source-data:
+  sqlserver-destination-data:
