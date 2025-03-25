@@ -1,0 +1,29 @@
+{
+    "config": {
+        "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+        "errors.log.include.messages": "true",
+        "dialect": "org.hibernate.dialect.SQLServerDialect",
+        "connection.password": "YourStrong@Passw0rd",
+        "tasks.max": "1",
+        "transforms": "",
+        "provide.transaction.metadata": "false",
+        "auto.evolve": "true",
+        "schema.evolution": "basic",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "insert.mode": "upsert",
+        "errors.log.enable": "true",
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "table.name.format": "dbo.Table1",
+        "primary.key.mode": "record_key",
+        "topics": "db1_19.db1.dbo.Table1",
+        "connection.username": "sa",
+        "key.converter.schemas.enable": "true",
+        "delete.enabled": "true",
+        "name": "db1_Table1_Sink-Connector",
+        "value.converter.schemas.enable": "true",
+        "errors.tolerance": "all",
+        "auto.create": "true",
+        "primary.key.fields": "id",
+        "connection.url": "jdbc:sqlserver://sqlserver-destination:1433;databaseName=db1;encrypt=false;"
+    }
+}

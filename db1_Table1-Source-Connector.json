@@ -1,0 +1,34 @@
+{
+	"config": {
+		"connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+		"database.encrypt": "false",
+		"transforms.dropHeaders.blacklist": "headers",
+		"database.user": "sa",
+		"database.names": "db1",
+		"database.history.kafka.bootstrap.servers": "kafka1:29092,kafka2:29092,kafka3:29092",
+		"database.history.kafka.topic": "schema-changes.db1_1",
+		"transforms": "dropHeaders",
+		"transforms.dropHeaders.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+		"database.server.name": "mssql-source",
+		"schema.history.internal.kafka.bootstrap.servers": "kafka1:29092,kafka2:29092,kafka3:29092",
+		"database.port": "1433",
+		"include.schema.changes": "true",
+		"value.converter.schema.registry.url": "http://schema-registry:8081",
+		"tombstones.on.delete": "false",
+		"topic.prefix": "db1_19",
+		"schema.history.internal.kafka.topic": "schema-history.db1_19",
+		"database.hostname": "sqlserver-source",
+		"database.password": "YourStrong@Passw0rd",
+		"name": "db1_Table1-Source-Connector",
+		"value.converter.schemas.enable": "true",
+		"table.include.list": "dbo.Table1",
+		"snapshot.mode": "initial",
+		"key.converter": "org.apache.kafka.connect.json.JsonConverter",
+  		"key.converter.schemas.enable": "true",
+		"value.converter": "org.apache.kafka.connect.json.JsonConverter"
+	}
+  }
+	
+
+
+
