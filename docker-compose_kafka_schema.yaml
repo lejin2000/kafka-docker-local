@@ -106,15 +106,18 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29092,kafka3:29092
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: "connect"
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: "http://debezium-connect:8083"
+      KAFKA_CLUSTERS_0_KSQLDB_0_NAME: "ksqldb"
+      KAFKA_CLUSTERS_0_KSQLDB_0_URL: "http://ksqldb-server:8088"
     depends_on:
       - kafka1
       - kafka2
       - kafka3
+      - ksqldb-server
     networks:
       - kafka-net
 
   debezium-connect:
-    image: debezium/connect:2.4
+    image: debezium/connect:2.6
     container_name: debezium-connect
     ports:
       - "8083:8083"
@@ -163,6 +166,38 @@ services:
       - sqlserver-destination-data:/var/opt/mssql
     networks:
       - kafka-net
+      
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:latest
+    container_name: ksqldb-server
+    hostname: ksqldb-server
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_BOOTSTRAP_SERVERS: "kafka1:29092,kafka2:29092,kafka3:29092"
+      KSQL_KSQL_SERVICE_ID: "ksql-server"
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_REPLICATION_FACTOR: 3
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - kafka-net
+  
+  ksqldb-cli:
+    image: confluentinc/ksqldb-cli:latest
+    container_name: ksqldb-cli
+    stdin_open: true
+    tty: true
+    depends_on:
+      - ksqldb-server
+    networks:
+      - kafka-net
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["echo 'Connecting to ksqlDB server...'; ksql http://ksqldb-server:8088;"]
 
 networks:
   kafka-net:
